@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Korruptions-Radar</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap');
+
+  :root {
+    --bg:       #05080f;
+    --bg2:      #090e18;
+    --bg3:      #0d1525;
+    --border:   #0f1e32;
+    --text:     #8faabe;
+    --text2:    #c8ddf0;
+    --accent:   #ff2d55;
+    --green:    #00e87a;
+    --yellow:   #f5c400;
+    --orange:   #ff7b22;
+    --blue:     #3a9fff;
+    --mono:     'Share Tech Mono', monospace;
+    --sans:     'Rajdhani', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    font-size: 15px;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: linear-gradient(180deg, #0a0f1c 0%, var(--bg) 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 1.1rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .pulse-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.85)} }
+
+  .logo h1 {
+    font-family: var(--sans);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text2);
+    letter-spacing: -.01em;
+  }
+
+  .logo h1 span { color: var(--accent); }
+  .logo small { display: block; font-size: .7rem; color: #3a5570; letter-spacing: .15em; text-transform: uppercase; font-family: var(--mono); }
+
+  .header-actions { display: flex; gap: .5rem; align-items: center; }
+
+  .btn {
+    font-family: var(--mono);
+    font-size: .72rem;
+    padding: .4rem .9rem;
+    border-radius: 5px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    transition: all .15s;
+    letter-spacing: .05em;
+  }
+  .btn:hover { border-color: var(--blue); color: var(--blue); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { background: #e0002a; }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex;
+    gap: .4rem;
+    padding: .75rem 2rem 0;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+
+  .tab {
+    font-family: var(--sans);
+    font-size: .85rem;
+    font-weight: 600;
+    padding: .5rem 1.1rem;
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    border: 1px solid transparent;
+    border-bottom: none;
+    color: #3a5570;
+    background: transparent;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--text2); background: var(--bg2); border-color: var(--border); border-bottom-color: var(--bg2); }
+
+  /* ── MAIN ── */
+  main { padding: 1.5rem 2rem; max-width: 1200px; margin: 0 auto; }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ── KPI GRID ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: .75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .kpi {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.1rem 1.2rem;
+    border-top: 3px solid transparent;
+    transition: transform .2s;
+  }
+  .kpi:hover { transform: translateY(-2px); }
+  .kpi .icon { font-size: 1.4rem; margin-bottom: .3rem; }
+  .kpi .value { font-family: var(--mono); font-size: 1.5rem; font-weight: 700; }
+  .kpi .label { font-size: .7rem; color: #3a5570; text-transform: uppercase; letter-spacing: .12em; margin-top: .15rem; }
+  .kpi.c1 { border-top-color: var(--yellow); } .kpi.c1 .value { color: var(--yellow); }
+  .kpi.c2 { border-top-color: var(--blue); }   .kpi.c2 .value { color: var(--blue); }
+  .kpi.c3 { border-top-color: var(--green); }  .kpi.c3 .value { color: var(--green); }
+  .kpi.c4 { border-top-color: var(--accent); } .kpi.c4 .value { color: var(--accent); }
+
+  /* ── FILTER BAR ── */
+  .filter-bar {
+    display: flex;
+    gap: .6rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .search {
+    flex: 1;
+    min-width: 220px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: .45rem .8rem;
+    color: var(--text2);
+    font-family: var(--mono);
+    font-size: .8rem;
+    outline: none;
+  }
+  .search:focus { border-color: var(--blue); }
+
+  .filter-btn {
+    font-family: var(--mono);
+    font-size: .72rem;
+    padding: .4rem .75rem;
+    border-radius: 5px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: #3a5570;
+    transition: all .15s;
+  }
+  .filter-btn.active { background: var(--bg3); border-color: #3a5570; color: var(--text2); }
+
+  .result-count { font-family: var(--mono); font-size: .72rem; color: #2a4060; margin-left: auto; }
+
+  /* ── KORRELATION CARD ── */
+  .k-list { display: flex; flex-direction: column; gap: .6rem; }
+
+  .k-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-left: 3px solid transparent;
+    border-radius: 10px;
+    padding: .9rem 1rem;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .k-card:hover { background: var(--bg3); }
+  .k-card.open { background: var(--bg3); }
+
+  .k-header {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+  }
+
+  /* Score ring SVG */
+  .score-ring { flex-shrink: 0; }
+
+  .k-info { flex: 1; min-width: 0; }
+  .k-top { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
+  .k-name { font-weight: 700; font-size: .95rem; color: var(--text2); }
+  .k-partei {
+    font-family: var(--mono);
+    font-size: .65rem;
+    padding: 1px 7px;
+    border-radius: 4px;
+  }
+  .k-level {
+    font-family: var(--mono);
+    font-size: .65rem;
+    padding: 1px 7px;
+    border-radius: 4px;
+  }
+  .k-sub { font-size: .78rem; color: #4a6278; margin-top: .2rem; }
+  .k-sub .amount { color: var(--yellow); }
+  .k-sub .abstimmung { color: var(--text); }
+
+  .k-chevron { color: #2a4060; font-size: .8rem; transition: transform .2s; }
+  .k-card.open .k-chevron { transform: rotate(180deg); }
+
+  .k-detail {
+    display: none;
+    margin-top: .9rem;
+    padding-top: .9rem;
+    border-top: 1px solid var(--border);
+  }
+  .k-card.open .k-detail { display: block; }
+
+  .k-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: .6rem;
+    margin-bottom: .75rem;
+  }
+
+  .k-field label { font-size: .65rem; color: #2a4060; text-transform: uppercase; letter-spacing: .1em; display: block; margin-bottom: .1rem; }
+  .k-field span { font-size: .82rem; color: #a0b8cc; font-family: var(--mono); }
+
+  .k-warning {
+    border-radius: 6px;
+    padding: .65rem .8rem;
+  }
+  .k-warning label { font-size: .65rem; text-transform: uppercase; letter-spacing: .1em; display: block; margin-bottom: .2rem; }
+  .k-warning p { font-size: .82rem; font-family: var(--mono); }
+
+  /* ── CHARTS ── */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .chart-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+
+  .chart-card h3 {
+    font-size: .7rem;
+    letter-spacing: .2em;
+    color: #3a5570;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  /* ── NETZWERK SVG ── */
+  .network-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+  .network-card h3 { font-size: .7rem; letter-spacing: .2em; color: #3a5570; text-transform: uppercase; margin-bottom: 1rem; }
+  #netzwerk-svg { width: 100%; height: auto; }
+
+  /* ── TABELLE ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  th { font-family: var(--mono); font-size: .65rem; letter-spacing: .12em; color: #3a5570; text-transform: uppercase; padding: .6rem .75rem; text-align: left; border-bottom: 1px solid var(--border); }
+  td { padding: .55rem .75rem; border-bottom: 1px solid #0a1520; color: #8090a0; }
+  tr:hover td { background: var(--bg3); }
+  td.amount { color: var(--yellow); font-family: var(--mono); }
+  td.partei-chip span { font-family: var(--mono); font-size: .7rem; padding: 2px 8px; border-radius: 4px; }
+
+  /* ── FOOTER ── */
+  .footer {
+    margin-top: 2rem;
+    padding: .9rem 1.1rem;
+    background: var(--bg2);
+    border: 1px solid #ff2d5520;
+    border-radius: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .5rem;
+    font-size: .73rem;
+    color: #2a4060;
+  }
+
+  /* ── LOADING ── */
+  .loading {
+    text-align: center;
+    padding: 3rem;
+    font-family: var(--mono);
+    color: #2a4060;
+    font-size: .85rem;
+  }
+
+  .loading::after {
+    content: '';
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid #1a3050;
+    border-top-color: var(--blue);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+    margin-left: .5rem;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    background: var(--bg3);
+    border: 1px solid var(--green);
+    border-radius: 8px;
+    padding: .75rem 1.1rem;
+    font-family: var(--mono);
+    font-size: .8rem;
+    color: var(--green);
+    display: none;
+    z-index: 999;
+    box-shadow: 0 4px 20px #00000060;
+  }
+
+  @media(max-width:600px) {
+    header, .tabs, main { padding-left: 1rem; padding-right: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="logo">
+    <div class="pulse-dot"></div>
+    <div>
+      <h1>Korruptions<span>radar</span></h1>
+      <small>Parteispenden · Abstimmungsverhalten · Deutschland</small>
+    </div>
+  </div>
+  <div class="header-actions">
+    <span id="last-update" style="font-family:var(--mono);font-size:.7rem;color:#2a4060"></span>
+    <button class="btn primary" onclick="neuAnalysieren()">⟳ Neu analysieren</button>
+  </div>
+</header>
+
+<!-- ── TABS ── -->
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('radar',this)">🔍 Verdachts-Radar</button>
+  <button class="tab" onclick="switchTab('spenden',this)">💰 Spenden</button>
+  <button class="tab" onclick="switchTab('netzwerk',this)">🕸️ Netzwerk</button>
+  <button class="tab" onclick="switchTab('nebeneinkuenfte',this)">💼 Nebeneinkünfte</button>
+  <button class="tab" onclick="switchTab('drehtuer',this)">🔄 Drehtür</button>
+  <button class="tab" onclick="switchTab('superscore',this)">🎯 Super-Score</button>
+  <button class="tab" onclick="switchTab('rohdaten',this)">📋 Rohdaten</button>
+</div>
+
+<!-- ── MAIN ── -->
+<main>
+
+  <!-- KPI Karten (immer sichtbar) -->
+  <div class="kpi-grid">
+    <div class="kpi c1"><div class="icon">💶</div><div class="value" id="kpi-spenden">—</div><div class="label">Gesamtspenden</div></div>
+    <div class="kpi c2"><div class="icon">📋</div><div class="value" id="kpi-anzahl">—</div><div class="label">Einzelspenden</div></div>
+    <div class="kpi c3"><div class="icon">🗳️</div><div class="value" id="kpi-abstimmungen">—</div><div class="label">Abstimmungen</div></div>
+    <div class="kpi c4"><div class="icon">⚠️</div><div class="value" id="kpi-verdaechtig">—</div><div class="label">Verdächtige Muster</div></div>
+  </div>
+
+  <!-- ── PANEL: RADAR ── -->
+  <div id="panel-radar" class="panel active">
+    <div class="filter-bar">
+      <input class="search" id="search-input" placeholder="Suche Spender, Abstimmung, Partei …" oninput="renderKorrelationen()">
+      <button class="filter-btn active" id="f-alle" onclick="setFilter('alle',this)">Alle</button>
+      <button class="filter-btn" id="f-hoch" onclick="setFilter('hoch',this)">🔴 Hoch ≥0.8</button>
+      <button class="filter-btn" id="f-mittel" onclick="setFilter('mittel',this)">🟠 Mittel ≥0.6</button>
+      <span class="result-count" id="result-count"></span>
+    </div>
+    <div class="k-list" id="k-list"><div class="loading">Lade Daten</div></div>
+  </div>
+
+  <!-- ── PANEL: SPENDEN ── -->
+  <div id="panel-spenden" class="panel">
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>Spenden nach Partei</h3>
+        <canvas id="chart-partei" height="220"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Spenden nach Branche</h3>
+        <canvas id="chart-branche" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANEL: NETZWERK ── -->
+  <div id="panel-netzwerk" class="panel">
+    <div class="network-card">
+      <h3>Verbindungsnetz: Spender → Partei (Liniendicke = Spendenhöhe)</h3>
+      <svg id="netzwerk-svg" viewBox="0 0 760 460"></svg>
+    </div>
+  </div>
+
+  <!-- ── PANEL: NEBENEINKÜNFTE ── -->
+  <div id="panel-nebeneinkuenfte" class="panel">
+    <div class="chart-card">
+      <h3>Nebeneinkünfte von Abgeordneten nach Branche</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Abgeordneter</th><th>Partei</th><th>Organisation</th><th>Tätigkeit</th><th>Branche</th><th>Einkommensstufe</th><th>Betrag/Jahr</th></tr></thead>
+          <tbody id="ne-tbody"><tr><td colspan="7" class="loading">Lade</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANEL: DREHTÜR ── -->
+  <div id="panel-drehtuer" class="panel">
+    <div class="chart-card" style="margin-bottom:1rem">
+      <h3>⚠ Drehtür-Effekt: Ausschuss + Nebeneinkünfte in gleicher Branche</h3>
+      <p style="font-size:.8rem;color:#4a6278;margin-bottom:1rem">Abgeordnete die gleichzeitig in einem relevanten Ausschuss sitzen UND Nebeneinkünfte aus der gleichen Branche beziehen.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Score</th><th>Abgeordneter</th><th>Partei</th><th>Ausschuss</th><th>Organisation</th><th>Branche</th><th>Verdachtsgründe</th></tr></thead>
+          <tbody id="drehtuer-tbody"><tr><td colspan="7" class="loading">Lade</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANEL: SUPER-SCORE ── -->
+  <div id="panel-superscore" class="panel">
+    <div class="chart-card" style="margin-bottom:1rem;border-top:3px solid #ff2d55">
+      <h3>🎯 Super-Score: Alle Faktoren kombiniert</h3>
+      <p style="font-size:.8rem;color:#4a6278;margin-bottom:1rem">
+        Kombiniert: Parteispende + Nebeneinkünfte des Abgeordneten + Ausschussmitgliedschaft + Abstimmungsverhalten<br>
+        <strong style="color:#ff7b22">Das ist der stärkste Indikator im System.</strong>
+      </p>
+      <div class="k-list" id="super-list"><div class="loading">Lade</div></div>
+    </div>
+  </div>
+
+  <!-- ── PANEL: ROHDATEN ── -->
+  <div id="panel-rohdaten" class="panel">
+    <div class="chart-card">
+      <h3>Alle erfassten Spenden</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Datum</th><th>Spender</th><th>Branche</th><th>Partei</th><th>Betrag</th></tr></thead>
+          <tbody id="spenden-tbody"><tr><td colspan="5" class="loading">Lade</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>⚠ Alle Daten basieren auf <strong>öffentlich zugänglichen Quellen</strong>. Korrelation ≠ Kausalität.</span>
+    <span>Quellen: Bundestag API · Lobbyregister · Bundesanzeiger</span>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+// ── STATE ────────────────────────────────────────────────────────────────────
+let korrelationen = [], spendenPartei = [], spendenBranche = [], alleSp = [];
+let nebeneinkuenfte = [], drehtuer = [], superScores = [];
+let aktuellerFilter = "alle";
+let chartPartei = null, chartBranche = null;
+
+// ── FARBEN ───────────────────────────────────────────────────────────────────
+const PARTEI_F = { CDU:"#1a3a5c", SPD:"#cc0000", "Grüne":"#3a7d44", FDP:"#c8a800", AfD:"#009de0", BSW:"#8b00ff" };
+const scoreColor = s => s>=0.8?"#ff2d55":s>=0.6?"#ff7b22":"#f5c400";
+const scoreLabel = s => s>=0.8?"HOCH":s>=0.6?"MITTEL":"NIEDRIG";
+const fmt = n => new Intl.NumberFormat("de-DE",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(n);
+
+// ── API CALLS ────────────────────────────────────────────────────────────────
+async function fetchAll() {
+  try {
+    const [zus, korr, sp, br, alle, ne, dt, ss] = await Promise.all([
+      fetch("/api/zusammenfassung").then(r=>r.json()),
+      fetch("/api/korrelationen").then(r=>r.json()),
+      fetch("/api/spenden_partei").then(r=>r.json()),
+      fetch("/api/spenden_branche").then(r=>r.json()),
+      fetch("/api/alle_spenden").then(r=>r.json()),
+      fetch("/api/nebeneinkuenfte").then(r=>r.json()).catch(()=>[]),
+      fetch("/api/drehtuer").then(r=>r.json()).catch(()=>[]),
+      fetch("/api/super_scores").then(r=>r.json()).catch(()=>[]),
+    ]);
+    renderKPIs(zus);
+    korrelationen = korr;
+    spendenPartei = sp;
+    spendenBranche = br;
+    alleSp = alle;
+    nebeneinkuenfte = ne;
+    drehtuer = dt;
+    superScores = ss;
+    renderKorrelationen();
+    renderCharts();
+    renderNetzwerk();
+    renderNebeneinkuenfte();
+    renderDrehtuer();
+    renderSuperScores();
+    renderTabelle();
+    document.getElementById("last-update").textContent = "Stand: " + new Date().toLocaleTimeString("de-DE");
+  } catch(e) {
+    document.getElementById("k-list").innerHTML = `<div style="padding:2rem;text-align:center;font-family:var(--mono);color:#ff2d55">⚠ API nicht erreichbar — läuft der Server?<br><small style="color:#3a5570">${e.message}</small></div>`;
+  }
+}
+
+async function neuAnalysieren() {
+  toast("Analyse wird neu gestartet …");
+  await fetch("/api/neu_analysieren", {method:"POST"});
+  setTimeout(fetchAll, 3000);
+}
+
+// ── KPIs ─────────────────────────────────────────────────────────────────────
+function renderKPIs(d) {
+  document.getElementById("kpi-spenden").textContent = fmt(d.total_spenden);
+  document.getElementById("kpi-anzahl").textContent = d.anzahl_spenden;
+  document.getElementById("kpi-abstimmungen").textContent = d.anzahl_abstimmungen;
+  document.getElementById("kpi-verdaechtig").textContent = d.verdaechtige_korrelationen;
+  if(document.getElementById("kpi-nebeneinkuenfte"))
+    document.getElementById("kpi-nebeneinkuenfte").textContent = d.anzahl_nebeneinkuenfte || "—";
+  if(document.getElementById("kpi-superscore"))
+    document.getElementById("kpi-superscore").textContent = d.super_score_faelle || "—";
+}
+
+// ── NEBENEINKÜNFTE ────────────────────────────────────────────────────────────
+function renderNebeneinkuenfte() {
+  const tbody = document.getElementById("ne-tbody");
+  if(!nebeneinkuenfte.length){ tbody.innerHTML=`<tr><td colspan="7" style="text-align:center;color:#2a4060;padding:2rem">Keine Daten — starte 'Neu analysieren'</td></tr>`; return; }
+  tbody.innerHTML = nebeneinkuenfte.map(ne => {
+    const pf = PARTEI_F[ne.partei]||"#3a5070";
+    const betrag = ne.betrag_min > 0 ? `${fmt(ne.betrag_min)} – ${fmt(ne.betrag_max)}` : "—";
+    return `<tr>
+      <td style="color:var(--text2);font-weight:600">${ne.name||"—"}</td>
+      <td><span style="background:${pf}25;color:${pf};border:1px solid ${pf}50;padding:2px 8px;border-radius:4px;font-family:var(--mono);font-size:.72rem">${ne.partei||"—"}</span></td>
+      <td style="color:var(--text2)">${ne.organisation}</td>
+      <td style="color:#8090a0;font-size:.8rem">${ne.taetigkeit||"—"}</td>
+      <td><span style="background:#ff7b2220;color:#ff7b22;border:1px solid #ff7b2240;padding:1px 6px;border-radius:4px;font-size:.72rem">${ne.branche||"—"}</span></td>
+      <td style="font-family:var(--mono);font-size:.78rem;color:#607080">${ne.einkommensklasse||"—"}</td>
+      <td style="font-family:var(--mono);color:var(--yellow)">${betrag}</td>
+    </tr>`;
+  }).join("");
+}
+
+// ── DREHTÜR ───────────────────────────────────────────────────────────────────
+function renderDrehtuer() {
+  const tbody = document.getElementById("drehtuer-tbody");
+  if(!drehtuer.length){ tbody.innerHTML=`<tr><td colspan="7" style="text-align:center;color:#2a4060;padding:2rem">Keine Drehtür-Fälle erkannt</td></tr>`; return; }
+  tbody.innerHTML = drehtuer.map(d => {
+    const col = scoreColor(d.verdachts_score);
+    const pf  = PARTEI_F[d.partei]||"#3a5070";
+    return `<tr>
+      <td><span style="background:${col}20;color:${col};border:1px solid ${col}40;padding:2px 8px;border-radius:4px;font-family:var(--mono);font-weight:700">${Math.round(d.verdachts_score*100)}</span></td>
+      <td style="color:var(--text2);font-weight:600">${d.name}</td>
+      <td><span style="background:${pf}25;color:${pf};border:1px solid ${pf}50;padding:2px 6px;border-radius:4px;font-size:.72rem;font-family:var(--mono)">${d.partei}</span></td>
+      <td style="color:#8090a0;font-size:.8rem">${d.position_vorher}</td>
+      <td style="color:var(--text2)">${d.organisation_nachher}</td>
+      <td><span style="background:#ff7b2220;color:#ff7b22;font-size:.72rem;padding:1px 6px;border-radius:4px">${d.branche}</span></td>
+      <td style="font-size:.75rem;color:${col}">${d.begruendung}</td>
+    </tr>`;
+  }).join("");
+}
+
+// ── SUPER-SCORES ──────────────────────────────────────────────────────────────
+function renderSuperScores() {
+  const container = document.getElementById("super-list");
+  if(!superScores.length){
+    container.innerHTML=`<div style="padding:2rem;text-align:center;color:#2a4060;font-family:var(--mono)">Keine Super-Score Daten — echte API-Daten nötig oder 'Neu analysieren'</div>`;
+    return;
+  }
+  container.innerHTML = superScores.map((s,i) => {
+    const col = scoreColor(s.super_score);
+    const pf  = PARTEI_F[s.partei]||"#3a5070";
+    const sc  = Math.round(s.super_score*100);
+    const r=20, circ=2*Math.PI*r, filled=circ*s.super_score;
+    let faktoren = {};
+    try { faktoren = JSON.parse(s.faktoren||"{}"); } catch(e){}
+    return `<div class="k-card" style="border-left-color:${col}" onclick="toggleCard(this)">
+      <div class="k-header">
+        <svg class="score-ring" width="52" height="52">
+          <circle cx="26" cy="26" r="${r}" fill="none" stroke="#1a2535" stroke-width="5"/>
+          <circle cx="26" cy="26" r="${r}" fill="none" stroke="${col}" stroke-width="5"
+            stroke-dasharray="${filled} ${circ}" stroke-linecap="round" transform="rotate(-90 26 26)"/>
+          <text x="26" y="27" text-anchor="middle" dominant-baseline="middle"
+            fill="${col}" font-size="11" font-weight="900" font-family="'Share Tech Mono',monospace">${sc}</text>
+        </svg>
+        <div class="k-info">
+          <div class="k-top">
+            <span class="k-name">${s.name}</span>
+            <span class="k-partei" style="background:${pf}25;color:${pf};border:1px solid ${pf}50">${s.partei}</span>
+            <span class="k-level" style="background:${col}15;color:${col};border:1px solid ${col}40">SUPER-${scoreLabel(s.super_score)}</span>
+          </div>
+          <div class="k-sub" style="margin-top:.3rem">
+            ${s.ausschuss ? `<span style="color:#8090a0">📋 ${s.ausschuss}</span> · ` : ""}
+            ${s.organisation ? `<span style="color:#ff7b22">💼 ${s.organisation}</span> · ` : ""}
+            ${s.spender ? `<span style="color:var(--yellow)">💰 ${s.spender} (${s.betrag_eur ? fmt(s.betrag_eur) : "—"})</span>` : ""}
+          </div>
+        </div>
+        <div class="k-chevron">▼</div>
+      </div>
+      <div class="k-detail">
+        <div class="k-grid">
+          ${[
+            ["Abgeordneter", s.name],
+            ["Partei", s.partei],
+            ["Ausschuss", s.ausschuss||"—"],
+            ["Nebeneinkünfte bei", s.organisation||"—"],
+            ["Parteispende von", s.spender||"—"],
+            ["Spendenbetrag", s.betrag_eur ? fmt(s.betrag_eur) : "—"],
+            ["Abstimmung", s.abstimmung||"—"],
+            ["Abstimmungsdatum", s.abstimmungs_datum||"—"],
+          ].map(([l,v])=>`<div class="k-field"><label>${l}</label><span>${v}</span></div>`).join("")}
+        </div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem">
+          ${Object.entries(faktoren).map(([k,v]) => {
+            const labels = {nebeneinkuenfte:"💼 Nebeneink.",ausschuss:"📋 Ausschuss",spende:"💰 Spende",zeitnaehe:"⏱ Zeitnähe",ja_votum:"✅ Ja-Votum"};
+            return `<span style="background:#0f1e30;border:1px solid #1a2535;border-radius:5px;padding:3px 10px;font-family:var(--mono);font-size:.72rem;color:${scoreColor(v*2)}">
+              ${labels[k]||k}: +${Math.round(v*100)}
+            </span>`;
+          }).join("")}
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+// ── KORRELATIONEN ─────────────────────────────────────────────────────────────
+function setFilter(f, btn) {
+  aktuellerFilter = f;
+  document.querySelectorAll(".filter-btn").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  renderKorrelationen();
+}
+
+function renderKorrelationen() {
+  const suche = document.getElementById("search-input").value.toLowerCase();
+  const liste = korrelationen.filter(k => {
+    const ok = !suche || [k.spender,k.abstimmung,k.partei,k.branche].some(v=>v&&v.toLowerCase().includes(suche));
+    const fs = aktuellerFilter==="hoch"?k.score>=0.8:aktuellerFilter==="mittel"?k.score>=0.6&&k.score<0.8:true;
+    return ok && fs;
+  });
+  document.getElementById("result-count").textContent = liste.length + " Treffer";
+  const container = document.getElementById("k-list");
+  if(!liste.length){ container.innerHTML = `<div style="padding:2rem;text-align:center;color:#2a4060;font-family:var(--mono)">Keine Ergebnisse</div>`; return; }
+
+  container.innerHTML = liste.map((k,i) => {
+    const sc = Math.round(k.verdachts_score*100);
+    const col = scoreColor(k.verdachts_score);
+    const r=20, circ=2*Math.PI*r, filled=circ*k.verdachts_score;
+    const pf = PARTEI_F[k.partei]||"#3a5070";
+    return `<div class="k-card" style="border-left-color:${col}" onclick="toggleCard(this)">
+      <div class="k-header">
+        <svg class="score-ring" width="52" height="52">
+          <circle cx="26" cy="26" r="${r}" fill="none" stroke="#1a2535" stroke-width="5"/>
+          <circle cx="26" cy="26" r="${r}" fill="none" stroke="${col}" stroke-width="5"
+            stroke-dasharray="${filled} ${circ}" stroke-linecap="round"
+            transform="rotate(-90 26 26)"/>
+          <text x="26" y="27" text-anchor="middle" dominant-baseline="middle"
+            fill="${col}" font-size="11" font-weight="900" font-family="'Share Tech Mono',monospace">${sc}</text>
+        </svg>
+        <div class="k-info">
+          <div class="k-top">
+            <span class="k-name">${k.spender}</span>
+            <span class="k-partei" style="background:${pf}25;color:${pf};border:1px solid ${pf}50">${k.partei}</span>
+            <span class="k-level" style="background:${col}15;color:${col};border:1px solid ${col}40">${scoreLabel(k.verdachts_score)}</span>
+          </div>
+          <div class="k-sub">
+            <span class="amount">${fmt(k.betrag_eur)}</span> am ${k.spenden_datum} →
+            <span class="abstimmung">„${k.abstimmung}"</span>
+            <span style="color:#2a4060">(${k.tage_abstand} Tage später)</span>
+          </div>
+        </div>
+        <div class="k-chevron">▼</div>
+      </div>
+      <div class="k-detail">
+        <div class="k-grid">
+          ${[["Spender",k.spender],["Betrag",fmt(k.betrag_eur)],["Branche",k.branche],["Partei",k.partei],
+             ["Abstimmung",k.abstimmung],["Zeitabstand",k.tage_abstand+" Tage"],["Thema",k.thema],["Datum Abstimmung",k.abstimmungs_datum]]
+            .map(([l,v])=>`<div class="k-field"><label>${l}</label><span>${v}</span></div>`).join("")}
+        </div>
+        <div class="k-warning" style="background:${col}10;border:1px solid ${col}30">
+          <label style="color:${col}">⚠ Verdachtsgründe</label>
+          <p style="color:${col}">${k.begruendung}</p>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function toggleCard(el) {
+  el.classList.toggle("open");
+}
+
+// ── CHARTS ───────────────────────────────────────────────────────────────────
+function renderCharts() {
+  Chart.defaults.color = "#4a6070";
+  Chart.defaults.borderColor = "#0f1e32";
+
+  // Partei-Chart
+  if(chartPartei) chartPartei.destroy();
+  chartPartei = new Chart(document.getElementById("chart-partei"), {
+    type: "bar",
+    data: {
+      labels: spendenPartei.map(d=>d.partei),
+      datasets: [{
+        data: spendenPartei.map(d=>d.gesamt),
+        backgroundColor: spendenPartei.map(d=>(PARTEI_F[d.partei]||"#3a5070")+"bb"),
+        borderColor: spendenPartei.map(d=>PARTEI_F[d.partei]||"#3a5070"),
+        borderWidth: 1, borderRadius: 5,
+      }]
+    },
+    options: {
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label: ctx => fmt(ctx.raw) } } },
+      scales:{ x:{grid:{display:false}}, y:{grid:{color:"#0f1e32"}, ticks:{ callback: v => fmt(v) }} },
+      responsive:true,
+    }
+  });
+
+  // Branche-Chart
+  if(chartBranche) chartBranche.destroy();
+  const farben = ["#ff2d55","#ff7b22","#f5c400","#00e87a","#3a9fff","#a78bfa","#f472b6","#94a3b8","#64748b"];
+  chartBranche = new Chart(document.getElementById("chart-branche"), {
+    type: "doughnut",
+    data: {
+      labels: spendenBranche.map(d=>d.branche),
+      datasets: [{
+        data: spendenBranche.map(d=>d.gesamt),
+        backgroundColor: farben,
+        borderColor: "#090e18",
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      plugins:{ legend:{ position:"right", labels:{ font:{size:11}, boxWidth:12 } },
+        tooltip:{ callbacks:{ label: ctx => ctx.label+": "+fmt(ctx.raw) } } },
+      responsive:true,
+    }
+  });
+}
+
+// ── NETZWERK ─────────────────────────────────────────────────────────────────
+function renderNetzwerk() {
+  const svg = document.getElementById("netzwerk-svg");
+  const parteien = [
+    {id:"CDU",x:380,y:170,f:PARTEI_F.CDU},
+    {id:"FDP",x:560,y:260,f:PARTEI_F.FDP},
+    {id:"SPD",x:200,y:260,f:PARTEI_F.SPD},
+    {id:"Grüne",x:380,y:350,f:PARTEI_F["Grüne"]},
+  ];
+  const spender = [
+    {name:"Deutsche Bank",x:80,y:70,partei:"CDU",betrag:500000},
+    {name:"RWE AG",x:260,y:50,partei:"CDU",betrag:420000},
+    {name:"E.ON SE",x:460,y:50,partei:"CDU",betrag:380000},
+    {name:"Allianz SE",x:620,y:90,partei:"CDU",betrag:350000},
+    {name:"Blackrock",x:690,y:190,partei:"CDU",betrag:300000},
+    {name:"Rheinmetall",x:500,y:60,partei:"CDU",betrag:250000},
+    {name:"BMW Group",x:680,y:320,partei:"FDP",betrag:200000},
+    {name:"BASF SE",x:580,y:420,partei:"FDP",betrag:150000},
+    {name:"Daimler",x:460,y:430,partei:"FDP",betrag:110000},
+    {name:"Volkswagen",x:100,y:330,partei:"SPD",betrag:180000},
+    {name:"Commerzbank",x:60,y:210,partei:"SPD",betrag:160000},
+    {name:"Lufthansa",x:100,y:420,partei:"SPD",betrag:140000},
+    {name:"Siemens",x:310,y:440,partei:"Grüne",betrag:90000},
+  ];
+
+  const lines = spender.map(sp => {
+    const t = parteien.find(p=>p.id===sp.partei);
+    const w = Math.max(1,(sp.betrag/500000)*5);
+    return `<line x1="${sp.x}" y1="${sp.y}" x2="${t.x}" y2="${t.y}" stroke="${PARTEI_F[sp.partei]}" stroke-width="${w}" opacity="0.3"/>`;
+  }).join("");
+
+  const nodes = spender.map(sp => {
+    const r = Math.max(8,(sp.betrag/500000)*14);
+    return `<g>
+      <circle cx="${sp.x}" cy="${sp.y}" r="${r}" fill="${PARTEI_F[sp.partei]}" opacity="0.7"/>
+      <text x="${sp.x}" y="${sp.y-r-4}" text-anchor="middle" fill="#5a7080" font-size="9" font-family="'Share Tech Mono',monospace">${sp.name}</text>
+    </g>`;
+  }).join("");
+
+  const pNodes = parteien.map(p =>
+    `<g><circle cx="${p.x}" cy="${p.y}" r="30" fill="${p.f}" opacity="0.92"/>
+     <text x="${p.x}" y="${p.y+1}" text-anchor="middle" dominant-baseline="middle" fill="#fff" font-size="12" font-weight="700" font-family="'Rajdhani',sans-serif">${p.id}</text></g>`
+  ).join("");
+
+  svg.innerHTML = lines + nodes + pNodes +
+    `<text x="380" y="22" text-anchor="middle" fill="#2a4060" font-size="10" font-family="'Share Tech Mono',monospace">Punktgröße &amp; Liniendicke = Spendenhöhe</text>`;
+}
+
+// ── TABELLE ───────────────────────────────────────────────────────────────────
+function renderTabelle() {
+  const tbody = document.getElementById("spenden-tbody");
+  tbody.innerHTML = alleSp.map(s => {
+    const pf = PARTEI_F[s.empfaenger]||"#3a5070";
+    return `<tr>
+      <td style="font-family:var(--mono)">${s.datum}</td>
+      <td style="color:var(--text2)">${s.spender}</td>
+      <td>${s.branche||"—"}</td>
+      <td class="partei-chip"><span style="background:${pf}25;color:${pf};border:1px solid ${pf}50;padding:2px 8px;border-radius:4px;font-family:var(--mono);font-size:.72rem">${s.empfaenger}</span></td>
+      <td class="amount">${fmt(s.betrag_eur)}</td>
+    </tr>`;
+  }).join("");
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
+function switchTab(id, btn) {
+  document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+  document.getElementById("panel-"+id).classList.add("active");
+  btn.classList.add("active");
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.style.display = "block";
+  setTimeout(()=>t.style.display="none", 3500);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+fetchAll();
+setInterval(fetchAll, 60000); // Auto-refresh alle 60s
+</script>
+</body>
+</html>

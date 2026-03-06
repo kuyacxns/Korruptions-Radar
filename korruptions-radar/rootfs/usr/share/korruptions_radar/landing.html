@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Korruptions-Radar Deutschland — Transparenz für alle</title>
+<meta name="description" content="Öffentliches Tool zur Analyse von Parteispenden, Nebeneinkünften und Abstimmungsverhalten im Deutschen Bundestag.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@400;600&family=Source+Serif+4:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink:     #0d0f14;
+  --paper:   #f5f0e8;
+  --cream:   #ede8dc;
+  --red:     #c0392b;
+  --gold:    #b8860b;
+  --muted:   #6b6560;
+  --border:  #d4cfc4;
+  --serif:   'Playfair Display', Georgia, serif;
+  --body:    'Source Serif 4', Georgia, serif;
+  --mono:    'IBM Plex Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+/* ── NEWSPAPER HEADER ── */
+.masthead {
+  background: var(--ink);
+  color: var(--paper);
+  text-align: center;
+  padding: 2.5rem 2rem 2rem;
+  border-bottom: 4px double var(--gold);
+  position: relative;
+  overflow: hidden;
+}
+
+.masthead::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px, rgba(255,255,255,.015) 2px, rgba(255,255,255,.015) 4px
+  );
+}
+
+.masthead-top {
+  font-family: var(--mono);
+  font-size: .72rem;
+  color: #888;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  background: var(--red);
+  color: #fff;
+  font-size: .65rem;
+  padding: 3px 10px;
+  border-radius: 3px;
+  letter-spacing: .1em;
+}
+
+.live-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  animation: blink 1.5s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+.masthead h1 {
+  font-family: var(--serif);
+  font-size: clamp(2.2rem, 6vw, 4.5rem);
+  font-weight: 900;
+  letter-spacing: -.02em;
+  line-height: 1;
+  margin-bottom: .5rem;
+}
+
+.masthead h1 em {
+  color: var(--red);
+  font-style: normal;
+}
+
+.masthead-sub {
+  font-family: var(--body);
+  font-size: clamp(.85rem, 2vw, 1.1rem);
+  color: #aaa;
+  font-weight: 300;
+  letter-spacing: .05em;
+  margin-bottom: 1.5rem;
+}
+
+.masthead-rule {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #555, transparent);
+  margin: 1rem 0;
+}
+
+/* ── NAV ── */
+nav {
+  background: var(--cream);
+  border-bottom: 2px solid var(--border);
+  padding: .6rem 2rem;
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+}
+
+nav a {
+  font-family: var(--mono);
+  font-size: .78rem;
+  color: var(--muted);
+  text-decoration: none;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: .25rem 0;
+  border-bottom: 2px solid transparent;
+  transition: all .15s;
+}
+nav a:hover { color: var(--red); border-bottom-color: var(--red); }
+
+/* ── TICKER ── */
+.ticker {
+  background: var(--red);
+  color: #fff;
+  padding: .4rem 0;
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: .78rem;
+  letter-spacing: .05em;
+}
+
+.ticker-inner {
+  display: inline-block;
+  white-space: nowrap;
+  animation: ticker 30s linear infinite;
+}
+@keyframes ticker { from{transform:translateX(100vw)} to{transform:translateX(-100%)} }
+
+/* ── HERO STATS ── */
+.hero {
+  max-width: 1100px;
+  margin: 3rem auto;
+  padding: 0 2rem;
+}
+
+.headline-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border: 2px solid var(--ink);
+  margin-bottom: 3rem;
+}
+
+.headline-main {
+  padding: 2rem;
+  border-right: 2px solid var(--ink);
+}
+
+.section-label {
+  font-family: var(--mono);
+  font-size: .65rem;
+  letter-spacing: .25em;
+  text-transform: uppercase;
+  color: var(--red);
+  border-bottom: 1px solid var(--red);
+  padding-bottom: .3rem;
+  margin-bottom: 1rem;
+  display: inline-block;
+}
+
+.headline-main h2 {
+  font-family: var(--serif);
+  font-size: clamp(1.4rem, 3vw, 2.2rem);
+  line-height: 1.2;
+  margin-bottom: 1rem;
+}
+
+.headline-main p {
+  color: var(--muted);
+  font-size: .95rem;
+  margin-bottom: 1.5rem;
+}
+
+.headline-side {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ── STAT BOXES ── */
+.stat-box {
+  border: 1px solid var(--border);
+  padding: 1rem;
+  text-align: center;
+  background: #fff;
+  transition: transform .2s;
+}
+.stat-box:hover { transform: translateY(-2px); }
+.stat-box .num {
+  font-family: var(--serif);
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--red);
+  display: block;
+  line-height: 1;
+}
+.stat-box .lbl {
+  font-family: var(--mono);
+  font-size: .68rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: .3rem;
+}
+
+/* ── THREE COLUMNS ── */
+.cols3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border: 2px solid var(--ink);
+  margin-bottom: 3rem;
+}
+
+.col {
+  padding: 1.5rem;
+  border-right: 1px solid var(--border);
+}
+.col:last-child { border-right: none; }
+
+.col h3 {
+  font-family: var(--serif);
+  font-size: 1.2rem;
+  margin-bottom: .75rem;
+  padding-bottom: .5rem;
+  border-bottom: 2px solid var(--ink);
+}
+
+.col p { font-size: .9rem; color: var(--muted); margin-bottom: .75rem; }
+
+/* ── VERDACHT CARDS ── */
+.verdacht-section {
+  margin-bottom: 3rem;
+}
+
+.verdacht-section h2 {
+  font-family: var(--serif);
+  font-size: 1.8rem;
+  border-top: 4px solid var(--ink);
+  border-bottom: 1px solid var(--border);
+  padding: .75rem 0;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.verdacht-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+
+.vcard {
+  background: #fff;
+  padding: 1.25rem;
+  cursor: pointer;
+  transition: background .15s;
+}
+.vcard:hover { background: var(--cream); }
+
+.vcard-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: .75rem;
+}
+
+.vcard h4 {
+  font-family: var(--serif);
+  font-size: 1rem;
+  line-height: 1.3;
+  flex: 1;
+  margin-right: 1rem;
+}
+
+.score-badge {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: .85rem;
+  padding: .25rem .6rem;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.vcard p { font-size: .83rem; color: var(--muted); }
+.vcard .tags { display: flex; gap: .4rem; margin-top: .6rem; flex-wrap: wrap; }
+.tag {
+  font-family: var(--mono);
+  font-size: .65rem;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  color: var(--muted);
+  background: var(--cream);
+}
+
+/* ── REPORTER TOOLS ── */
+.reporter-section {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 3rem 2rem;
+  margin-bottom: 3rem;
+}
+
+.reporter-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.reporter-section h2 {
+  font-family: var(--serif);
+  font-size: 2rem;
+  margin-bottom: .5rem;
+}
+.reporter-section p { color: #aaa; margin-bottom: 2rem; }
+
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1px;
+  background: #333;
+}
+
+.tool-card {
+  background: #111;
+  padding: 1.5rem;
+  transition: background .15s;
+}
+.tool-card:hover { background: #1a1a1a; }
+
+.tool-icon { font-size: 1.8rem; margin-bottom: .75rem; }
+.tool-card h3 { font-family: var(--serif); font-size: 1.1rem; color: var(--paper); margin-bottom: .5rem; }
+.tool-card p { font-size: .83rem; color: #888; margin-bottom: 1rem; }
+
+.btn-tool {
+  font-family: var(--mono);
+  font-size: .72rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: .5rem 1rem;
+  background: transparent;
+  border: 1px solid #555;
+  color: #ccc;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: all .15s;
+}
+.btn-tool:hover { border-color: var(--gold); color: var(--gold); }
+.btn-tool.primary { border-color: var(--red); color: var(--red); }
+.btn-tool.primary:hover { background: var(--red); color: #fff; }
+
+/* ── METHODIK ── */
+.methodik {
+  max-width: 1100px;
+  margin: 0 auto 3rem;
+  padding: 0 2rem;
+}
+
+.methodik h2 {
+  font-family: var(--serif);
+  font-size: 1.8rem;
+  border-top: 4px solid var(--ink);
+  border-bottom: 1px solid var(--border);
+  padding: .75rem 0;
+  margin-bottom: 1.5rem;
+}
+
+.methodik-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+
+.m-box {
+  border-left: 3px solid var(--red);
+  padding-left: 1rem;
+}
+.m-box h4 { font-family: var(--serif); margin-bottom: .4rem; }
+.m-box p { font-size: .85rem; color: var(--muted); }
+
+/* ── FOOTER ── */
+footer {
+  background: var(--ink);
+  color: #888;
+  padding: 2rem;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: .75rem;
+  letter-spacing: .05em;
+  border-top: 4px double var(--gold);
+}
+
+footer strong { color: var(--paper); }
+
+/* ── MODAL ── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.7);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  max-width: 600px;
+  width: 100%;
+  padding: 2rem;
+  position: relative;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.modal h3 { font-family: var(--serif); font-size: 1.4rem; margin-bottom: 1rem; }
+.modal-close {
+  position: absolute;
+  top: 1rem; right: 1rem;
+  background: none; border: none;
+  font-size: 1.2rem; cursor: pointer;
+  color: var(--muted);
+}
+.modal-close:hover { color: var(--red); }
+
+@media(max-width: 700px) {
+  .headline-row { grid-template-columns: 1fr; }
+  .headline-main { border-right: none; border-bottom: 2px solid var(--ink); }
+  .cols3 { grid-template-columns: 1fr; }
+  .col { border-right: none; border-bottom: 1px solid var(--border); }
+  nav { gap: 1rem; }
+}
+
+/* ── LOADING ── */
+.skeleton {
+  background: linear-gradient(90deg, #e8e3d8 25%, #ddd8cc 50%, #e8e3d8 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 3px;
+  height: 1em;
+  display: inline-block;
+  width: 100%;
+}
+@keyframes shimmer { to { background-position: -200% 0; } }
+</style>
+</head>
+<body>
+
+<!-- ── MASTHEAD ── -->
+<div class="masthead">
+  <div class="masthead-top" style="max-width:1100px;margin:0 auto">
+    <span>Öffentliches Transparenz-Projekt · Deutschland</span>
+    <span class="live-badge"><span class="live-dot"></span>Live-Daten</span>
+    <span id="datum-header">Wird geladen…</span>
+  </div>
+  <div class="masthead-rule" style="max-width:1100px;margin:.5rem auto"></div>
+  <h1>Korruptions<em>radar</em></h1>
+  <p class="masthead-sub">Parteispenden · Nebeneinkünfte · Abstimmungsverhalten · Drehtür-Effekte</p>
+  <div class="masthead-rule" style="max-width:1100px;margin:.5rem auto"></div>
+  <p style="font-family:var(--mono);font-size:.72rem;color:#888;letter-spacing:.1em">
+    Alle Daten aus öffentlichen Quellen · Bundestag · Abgeordnetenwatch · Lobbyregister
+  </p>
+</div>
+
+<!-- ── NAVIGATION ── -->
+<nav>
+  <a href="#aktuell">Aktuell</a>
+  <a href="#verdacht">Verdachtsfälle</a>
+  <a href="#reporter">Für Journalisten</a>
+  <a href="#methodik">Methodik</a>
+  <a href="/dashboard">→ Live-Dashboard</a>
+</nav>
+
+<!-- ── TICKER ── -->
+<div class="ticker">
+  <span class="ticker-inner" id="ticker-text">
+    ◆ NEUESTE SPENDE: Wird geladen… ◆ VERDÄCHTIGSTES MUSTER: Wird geladen… ◆ LETZTE AKTUALISIERUNG: Wird geladen…
+  </span>
+</div>
+
+<!-- ── HERO ── -->
+<div class="hero" id="aktuell">
+  <div class="headline-row">
+    <div class="headline-main">
+      <span class="section-label">Was dieses Projekt macht</span>
+      <h2>Wenn Geld und Macht auf Gesetze treffen — automatisch sichtbar gemacht</h2>
+      <p>Dieses System analysiert täglich öffentliche Daten des Deutschen Bundestags und berechnet automatisch, ob Parteispenden zeitlich mit politischen Entscheidungen zusammenfallen — und ob betroffene Abgeordnete Nebeneinkünfte aus der gleichen Branche beziehen.</p>
+      <p style="font-size:.85rem;color:var(--muted)">Korrelation ist kein Beweis für Korruption. Aber sie ist ein Hinweis — und Hinweise verdienen öffentliche Aufmerksamkeit.</p>
+      <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+        <a href="/dashboard" class="btn-tool primary">→ Live-Dashboard öffnen</a>
+        <a href="/api/export/csv" class="btn-tool" download>↓ Daten als CSV</a>
+      </div>
+    </div>
+    <div class="headline-side">
+      <div class="stat-box">
+        <span class="num" id="stat-spenden">—</span>
+        <span class="lbl">Erfasste Großspenden</span>
+      </div>
+      <div class="stat-box">
+        <span class="num" id="stat-verdaechtig">—</span>
+        <span class="lbl">Verdächtige Korrelationen</span>
+      </div>
+      <div class="stat-box">
+        <span class="num" id="stat-nebeneinkuenfte">—</span>
+        <span class="lbl">Erfasste Nebeneinkünfte</span>
+      </div>
+      <div class="stat-box">
+        <span class="num" id="stat-super">—</span>
+        <span class="lbl">Super-Score Verdachtsfälle</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 3 COLUMNS ── -->
+  <div class="cols3">
+    <div class="col">
+      <h3>💰 Parteispenden</h3>
+      <p>Alle Großspenden über 35.000€ werden vom Bundestag veröffentlicht. Wir erfassen sie automatisch und analysieren ob kurz danach relevante Abstimmungen stattfanden.</p>
+      <p style="font-size:.8rem;border-top:1px solid var(--border);padding-top:.5rem;color:var(--muted)">Quelle: bundestag.de · täglich aktualisiert</p>
+    </div>
+    <div class="col">
+      <h3>💼 Nebeneinkünfte</h3>
+      <p>Abgeordnete müssen Nebeneinkünfte über 1.000€/Monat melden. Wir prüfen ob sie gleichzeitig in Ausschüssen sitzen, die für ihre Geldgeber relevant sind.</p>
+      <p style="font-size:.8rem;border-top:1px solid var(--border);padding-top:.5rem;color:var(--muted)">Quelle: abgeordnetenwatch.de · täglich aktualisiert</p>
+    </div>
+    <div class="col">
+      <h3>🔄 Drehtür-Effekt</h3>
+      <p>Wer sitzt im Verteidigungsausschuss und verdient gleichzeitig bei einem Rüstungskonzern? Unser System erkennt diese Doppelrollen automatisch.</p>
+      <p style="font-size:.8rem;border-top:1px solid var(--border);padding-top:.5rem;color:var(--muted)">Berechnet aus kombinierten Quellen</p>
+    </div>
+  </div>
+</div>
+
+<!-- ── VERDACHTSFÄLLE ── -->
+<div style="max-width:1100px;margin:0 auto;padding:0 2rem" id="verdacht">
+  <div class="verdacht-section">
+    <h2>
+      <span style="background:var(--red);color:#fff;padding:.2rem .6rem;font-size:1rem;font-family:var(--mono)">AKTUELL</span>
+      Höchste Verdachts-Scores
+    </h2>
+    <div class="verdacht-grid" id="verdacht-grid">
+      <div class="vcard"><div class="skeleton"></div><div class="skeleton" style="width:60%;margin-top:.5rem"></div></div>
+      <div class="vcard"><div class="skeleton"></div><div class="skeleton" style="width:60%;margin-top:.5rem"></div></div>
+      <div class="vcard"><div class="skeleton"></div><div class="skeleton" style="width:60%;margin-top:.5rem"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── REPORTER TOOLS ── -->
+<div class="reporter-section" id="reporter">
+  <div class="reporter-inner">
+    <div class="section-label" style="color:var(--gold);border-color:var(--gold)">Für Journalisten & NGOs</div>
+    <h2>Recherche-Werkzeuge</h2>
+    <p>Alle Daten sind frei zugänglich und maschinenlesbar. Für investigative Recherchen stehen folgende Exports bereit:</p>
+    <div class="tools-grid">
+      <div class="tool-card">
+        <div class="tool-icon">📊</div>
+        <h3>Vollständiger Datensatz</h3>
+        <p>Alle Spenden, Abstimmungen, Nebeneinkünfte und Korrelationen als CSV — direkt importierbar in Excel, SPSS oder R.</p>
+        <a href="/api/export/csv" class="btn-tool primary" download>↓ CSV herunterladen</a>
+      </div>
+      <div class="tool-card">
+        <div class="tool-icon">📑</div>
+        <h3>Verdachts-Report PDF</h3>
+        <p>Automatisch generierter Bericht der Top-50 Verdachtsfälle mit Quellenangaben — druckfertig für Redaktionen.</p>
+        <a href="/api/export/report" class="btn-tool" download>↓ PDF-Report</a>
+      </div>
+      <div class="tool-card">
+        <div class="tool-icon">🔌</div>
+        <h3>JSON API</h3>
+        <p>Alle Endpunkte sind öffentlich erreichbar. Ideal für eigene Visualisierungen oder Weiterverarbeitung.</p>
+        <a href="/api/zusammenfassung" class="btn-tool" target="_blank">→ API erkunden</a>
+      </div>
+      <div class="tool-card">
+        <div class="tool-icon">🔔</div>
+        <h3>Wöchentlicher Alert</h3>
+        <p>Automatische Benachrichtigung wenn neue hochverdächtige Muster erkannt werden.</p>
+        <button class="btn-tool" onclick="document.getElementById('alert-modal').classList.add('open')">→ Alert einrichten</button>
+      </div>
+      <div class="tool-card">
+        <div class="tool-icon">🧑‍💻</div>
+        <h3>Open Source Code</h3>
+        <p>Der vollständige Quellcode ist frei verfügbar. Fehler melden, erweitern, forken — ausdrücklich erwünscht.</p>
+        <a href="https://github.com" class="btn-tool" target="_blank">→ GitHub</a>
+      </div>
+      <div class="tool-card">
+        <div class="tool-icon">⚖️</div>
+        <h3>Rechtliche Hinweise</h3>
+        <p>Alle Daten stammen aus offiziellen öffentlichen Quellen. Korrelation ≠ Beweis. Quellen werden vollständig angegeben.</p>
+        <button class="btn-tool" onclick="document.getElementById('legal-modal').classList.add('open')">→ Mehr erfahren</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── METHODIK ── -->
+<div class="methodik" id="methodik">
+  <h2>Methodik & Transparenz</h2>
+  <div class="methodik-grid">
+    <div class="m-box">
+      <h4>Verdachts-Score</h4>
+      <p>Jede Spende-Abstimmungs-Kombination erhält einen Score von 0–100. Faktoren: Spendenhöhe (30%), Zeitnähe (30%), thematische Übereinstimmung (25%), Abstimmungsresultat (15%).</p>
+    </div>
+    <div class="m-box">
+      <h4>Super-Score</h4>
+      <p>Kombiniert zusätzlich Nebeneinkünfte des Abgeordneten (+25%) und Ausschussmitgliedschaft (+25%). Dies ist der stärkste Indikator im System.</p>
+    </div>
+    <div class="m-box">
+      <h4>Datenquellen</h4>
+      <p>Bundestag Open Data API, Abgeordnetenwatch API v2, Lobbyregister des Bundestags, DIP Parlamentsdokumentation. Alle Quellen werden pro Datensatz gespeichert.</p>
+    </div>
+    <div class="m-box">
+      <h4>Grenzen des Systems</h4>
+      <p>Parteispenden werden mit bis zu einem Jahr Verzögerung veröffentlicht. Korrelation ist kein Beweis. Kleinspendenfinanzierung ist nicht erfasst. Indirekte Einflussnahme bleibt unsichtbar.</p>
+    </div>
+    <div class="m-box">
+      <h4>Open Source</h4>
+      <p>Alle Algorithmen sind öffentlich einsehbar. Das System kann von jedem geprüft, kritisiert und verbessert werden. Fehler in der Methodik bitten wir zu melden.</p>
+    </div>
+    <div class="m-box">
+      <h4>Kein Impressum nötig?</h4>
+      <p>Dieses Tool ist ein Bildungs- und Transparenzprojekt ohne kommerzielle Absicht. Für eine öffentliche Website empfehlen wir, einen Anwalt für Medienrecht zu konsultieren.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <p><strong>Korruptions-Radar Deutschland</strong> · Öffentliches Transparenzprojekt</p>
+  <p style="margin-top:.5rem">Alle Daten aus offiziellen öffentlichen Quellen · Korrelation ≠ Kausalität · Kein Rechtsanspruch auf Vollständigkeit</p>
+  <p style="margin-top:.5rem">Quellen: <strong>bundestag.de</strong> · <strong>abgeordnetenwatch.de</strong> · <strong>lobbyregister.bundestag.de</strong></p>
+</footer>
+
+<!-- ── MODALS ── -->
+<div class="modal-overlay" id="alert-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <button class="modal-close" onclick="document.getElementById('alert-modal').classList.remove('open')">✕</button>
+    <h3>Wöchentlicher Verdachts-Alert</h3>
+    <p style="color:var(--muted);margin-bottom:1rem">Das System generiert jeden Montag automatisch einen Bericht der neuen Hochverdachtsfälle. Trage deine Email ein um ihn zu erhalten.</p>
+    <p style="font-size:.85rem;color:var(--muted);border:1px solid var(--border);padding:1rem;background:var(--cream)">
+      ⚠ Diese Funktion erfordert einen eigenen Email-Server. Im aktuellen Setup kannst du den Bericht manuell unter <strong>/api/export/report</strong> abrufen oder die Webhook-URL eines Dienstes wie ntfy.sh oder Pushover eintragen.
+    </p>
+  </div>
+</div>
+
+<div class="modal-overlay" id="legal-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <button class="modal-close" onclick="document.getElementById('legal-modal').classList.remove('open')">✕</button>
+    <h3>Rechtliche Hinweise</h3>
+    <p style="color:var(--muted);margin-bottom:.75rem">Alle auf dieser Seite dargestellten Daten stammen aus offiziellen, öffentlich zugänglichen Quellen des Deutschen Bundestags und seiner Informationsdienste.</p>
+    <p style="color:var(--muted);margin-bottom:.75rem">Ein hoher Verdachts-Score ist kein Beweis für rechtswidriges Handeln. Er zeigt statistische Auffälligkeiten, die eine weitere journalistische Recherche rechtfertigen.</p>
+    <p style="color:var(--muted);margin-bottom:.75rem">Namentliche Erwähnungen von Personen beruhen ausschließlich auf öffentlich gemeldeten Pflichtangaben (z.B. Nebeneinkünfte nach §44a AbgG).</p>
+    <p style="font-size:.85rem;color:var(--red)">Für eine öffentlich zugängliche Website empfehlen wir dringend, einen Anwalt für Presserecht zu konsultieren bevor das System veröffentlicht wird.</p>
+  </div>
+</div>
+
+<script>
+async function loadData() {
+  try {
+    const [zus, korr] = await Promise.all([
+      fetch('/api/zusammenfassung').then(r=>r.json()),
+      fetch('/api/korrelationen').then(r=>r.json()),
+    ]);
+
+    // Stats
+    const fmt = n => new Intl.NumberFormat('de-DE').format(Math.round(n));
+    document.getElementById('stat-spenden').textContent = fmt(zus.anzahl_spenden);
+    document.getElementById('stat-verdaechtig').textContent = fmt(zus.verdaechtige_korrelationen);
+    document.getElementById('stat-nebeneinkuenfte').textContent = fmt(zus.anzahl_nebeneinkuenfte||0);
+    document.getElementById('stat-super').textContent = fmt(zus.super_score_faelle||0);
+    document.getElementById('datum-header').textContent = 'Stand: ' + new Date().toLocaleDateString('de-DE');
+
+    // Ticker
+    const top = korr[0];
+    if(top) {
+      const fmtE = n => new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
+      document.getElementById('ticker-text').textContent =
+        `◆ HÖCHSTER SCORE: ${top.spender} → ${top.partei} (${fmtE(top.betrag_eur)}) — ${top.tage_abstand} Tage vor "${top.abstimmung}" — Score: ${Math.round(top.verdachts_score*100)}/100` +
+        `  ◆  GESAMTSPENDEN ERFASST: ${fmtE(zus.total_spenden)}` +
+        `  ◆  VERDÄCHTIGE MUSTER: ${zus.verdaechtige_korrelationen}` +
+        `  ◆  SUPER-SCORE FÄLLE: ${zus.super_score_faelle||0}` +
+        `  ◆  DATEN STAND: ${new Date().toLocaleString('de-DE')}  `;
+    }
+
+    // Verdacht-Grid
+    const PARTEI_F = { CDU:'#1a3a5c', SPD:'#cc0000', 'Grüne':'#3a7d44', FDP:'#b8860b', AfD:'#009de0', BSW:'#8b00ff' };
+    const scoreCol = s => s>=0.8?'#c0392b':s>=0.6?'#e67e22':'#f39c12';
+    const fmtE = n => new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
+    const top6 = korr.slice(0,6);
+    document.getElementById('verdacht-grid').innerHTML = top6.map(k => {
+      const sc = Math.round(k.verdachts_score*100);
+      const col = scoreCol(k.verdachts_score);
+      const pf  = PARTEI_F[k.partei]||'#555';
+      return `<div class="vcard" onclick="window.location='/dashboard'">
+        <div class="vcard-top">
+          <h4>${k.spender} → ${k.abstimmung}</h4>
+          <span class="score-badge" style="background:${col}20;color:${col};border:1px solid ${col}50">${sc}/100</span>
+        </div>
+        <p>${fmtE(k.betrag_eur)} an <strong>${k.partei}</strong> · ${k.tage_abstand} Tage vor Abstimmung · Thema: ${k.thema}</p>
+        <div class="tags">
+          <span class="tag" style="color:${pf};border-color:${pf}50">${k.partei}</span>
+          <span class="tag">${k.branche}</span>
+          <span class="tag">${k.thema}</span>
+          ${k.verdachts_score>=0.8?`<span class="tag" style="color:${col};border-color:${col}50">⚠ Hochverdächtig</span>`:''}
+        </div>
+      </div>`;
+    }).join('');
+
+  } catch(e) {
+    document.getElementById('verdacht-grid').innerHTML =
+      `<div class="vcard" style="grid-column:1/-1;text-align:center;color:var(--muted);padding:2rem">
+        Dashboard nicht erreichbar — bitte starte das Add-on auf dem Raspberry Pi
+      </div>`;
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>
