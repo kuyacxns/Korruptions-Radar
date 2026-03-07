@@ -1,14 +1,12 @@
 #!/usr/bin/with-contenv bashio
 
-bashio::log.info "Starte Korruptions-Radar v2..."
-
-# Verzeichnisse anlegen
+bashio::log.info "Starte Korruptions-Radar..."
 mkdir -p /data/korruptions_radar/reports
 mkdir -p /data/korruptions_radar/cache
 
-# Datenbank initialisieren + Demo-Daten laden
-bashio::log.info "Initialisiere Datenbank..."
-python3 /usr/bin/daten_sammler.py
+# Flask ist nicht installiert - verwende eingebautes Python http.server
+cd /usr/share/korruptions_radar
+python3 -m http.server 7755
 
 # Wöchentlichen Bericht generieren (jeden Montag 07:00)
 (while true; do
