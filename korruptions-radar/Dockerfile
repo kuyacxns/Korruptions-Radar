@@ -1,10 +1,6 @@
-ARG BUILD_FROM=ghcr.io/home-assistant/aarch64-base-python:3.11-alpine3.17
-FROM $BUILD_FROM
+FROM ghcr.io/home-assistant/aarch64-base-python:3.11-alpine3.17
 
-# Install system dependencies
-RUN apk add --no-cache nginx
-
-# Install Python packages
+# Install Python packages (bereits im Image vorhanden, kein apk nötig)
 RUN pip3 install flask --break-system-packages
 
 # Copy application files
