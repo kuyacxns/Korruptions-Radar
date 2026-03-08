@@ -227,13 +227,24 @@ def erkenne_branche(text):
 # QUELLE 1: PARTEISPENDEN
 # ═══════════════════════════════════════════════════════════
 
+SPENDEN_URLS = {
+    2021: "https://www.bundestag.de/parlament/praesidium/parteienfinanzierung/fundstellen50000/2021",
+    2022: "https://www.bundestag.de/parlament/praesidium/parteienfinanzierung/fundstellen50000/2022/2022-inhalt-879480",
+    2023: "https://www.bundestag.de/parlament/praesidium/parteienfinanzierung/fundstellen50000/2023",
+    2024: "https://www.bundestag.de/parlament/praesidium/parteienfinanzierung/fundstellen50000/2024/2024-inhalt-984862",
+    2025: "https://www.bundestag.de/parlament/praesidium/parteienfinanzierung/fundstellen50000/2025/2025-inhalt-1032412",
+    2026: "https://www.bundestag.de/parlament/praesidium/parteienfinanzierung/fundstellen50000/2026/2026-inhalt-1134912",
+}
+
 def _finde_spenden_url(jahr):
-    """Findet die echte Inhalts-URL für ein Jahr (Bundestag hat Unterordner)."""
+    """Gibt die bekannte Inhalts-URL zurück, oder sucht sie dynamisch."""
+    if jahr in SPENDEN_URLS:
+        return SPENDEN_URLS[jahr]
+    # Fallback: Index-Seite laden und Link suchen
     basis = f"https://www.bundestag.de/parlament/praesidium/parteienfinanzierung/fundstellen50000/{jahr}"
     html = html_get(basis, cache_key=f"spenden_index_{jahr}", cache_h=48)
     if not html:
         return basis
-    # Suche nach Link zum Jahresinhalt, z.B. /.../.../2024-inhalt-984862
     match = re.search(r'href="(/parlament/praesidium/parteienfinanzierung/fundstellen50000/' + str(jahr) + r'/[^"]+)"', html)
     if match:
         return "https://www.bundestag.de" + match.group(1)
