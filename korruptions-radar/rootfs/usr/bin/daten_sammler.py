@@ -26,7 +26,7 @@ DB_PATH   = Path("/data/korruptions_radar/korruptions_radar.db")
 CACHE_DIR = Path("/data/korruptions_radar/cache")
 
 DIP_API_KEY    = "OSOegLs.PR2lwJ1dwCeje9vTj7FPOt3hvpYKtwKkhw"
-WAHLPERIODE_ID = 132   # 21. Bundestag 2025-2029
+WAHLPERIODE_ID = 161   # 21. Bundestag 2025-2029
 RATE_LIMIT     = 0.5   # Sekunden zwischen Anfragen
 
 
@@ -484,7 +484,7 @@ def lade_abstimmungen(max_seiten=10):
     n = 0
     for seite in range(max_seiten):
         data = api_get(
-            f"https://www.abgeordnetenwatch.de/api/v2/polls?pager_limit=25&page={seite}",
+            f"https://www.abgeordnetenwatch.de/api/v2/polls?parliament_period_id={WAHLPERIODE_ID}&pager_limit=25&page={seite}",
             cache_key=f"polls_{WAHLPERIODE_ID}_p{seite}"
         )
         if not data or not data.get("data"):
@@ -521,7 +521,11 @@ def lade_abstimmungsergebnisse(max_abstimmungen=40):
                        cache_key=f"votes_{aw_id}")
         if not data or "data" not in data:
             continue
-        votes = (data["data"].get("related_data") or {}).get("votes", {}).get("data", [])
+        d = data["data"]
+        if isinstance(d, list): continue
+        related = (d.get("related_data") or {})
+        votes_raw = related.get("votes", {})
+        votes = votes_raw if isinstance(votes_raw, list) else votes_raw.get("data", [])
         for vote in votes:
             try:
                 pol   = (vote.get("mandate") or {}).get("politician") or {}
