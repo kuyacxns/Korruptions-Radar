@@ -227,41 +227,75 @@ def erkenne_branche(text):
 # QUELLE 1: PARTEISPENDEN
 # ═══════════════════════════════════════════════════════════
 
+def _finde_spenden_url(jahr):
+    """Findet die echte Inhalts-URL für ein Jahr (Bundestag hat Unterordner)."""
+    basis = f"https://www.bundestag.de/parlament/praesidium/parteienfinanzierung/fundstellen50000/{jahr}"
+    html = html_get(basis, cache_key=f"spenden_index_{jahr}", cache_h=48)
+    if not html:
+        return basis
+    # Suche nach Link zum Jahresinhalt, z.B. /.../.../2024-inhalt-984862
+    match = re.search(r'href="(/parlament/praesidium/parteienfinanzierung/fundstellen50000/' + str(jahr) + r'/[^"]+)"', html)
+    if match:
+        return "https://www.bundestag.de" + match.group(1)
+    return basis
+
+def _parse_spenden_html(html, url, c, jahr):
+    """Parst HTML-Tabelle der Bundestag-Spendenseite, gibt Anzahl neuer Einträge zurück."""
+    neu = 0
+    rows = re.findall(r'<tr[^>]*>(.*?)</tr>', html, re.DOTALL)
+    for row in rows:
+        cells = re.findall(r'<td[^>]*>(.*?)</td>', row, re.DOTALL)
+        cells = [re.sub(r'<[^>]+>', '', cell).strip() for cell in cells]
+        cells = [c2.replace('\n',' ').replace('\r','').strip() for c2 in cells]
+        if len(cells) < 4:
+            continue
+        try:
+            # Datum: DD.MM.YYYY
+            t = cells[0].split('.')
+            if len(t) != 3 or not t[2].strip().isdigit():
+                continue
+            datum = f"{t[2].strip()}-{t[1].zfill(2)}-{t[0].zfill(2)}"
+            spender = cells[1].strip()
+            partei  = cells[2].strip()
+            bs = cells[3].replace('.','').replace(',','.').replace('€','').replace('\xa0','').replace(' ','').strip()
+            betrag = float(''.join(ch for ch in bs if ch.isdigit() or ch == '.'))
+            if not spender or not partei or betrag <= 0:
+                continue
+            if not c.execute("SELECT id FROM parteispenden WHERE spender=? AND datum=? AND betrag_eur=?",
+                             (spender, datum, betrag)).fetchone():
+                c.execute("INSERT INTO parteispenden (spender,empfaenger,betrag_eur,datum,branche,quelle_url,quelle) VALUES (?,?,?,?,?,?,?)",
+                          (spender, partei, betrag, datum, erkenne_branche(spender), url, "bundestag"))
+                neu += 1
+        except (ValueError, IndexError):
+            continue
+    return neu
+
 def lade_parteispenden(jahre=None):
     if jahre is None:
         jahre = list(range(2021, datetime.date.today().year + 1))
     conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+    cur = conn.cursor()
     gesamt = 0
     for jahr in jahre:
-        url = f"https://bundestag.api.proxy.bund.dev/parlament/praesidium/parteienfinanzierung/fundstellen50000/{jahr}"
         print(f"  → Spenden {jahr}...")
-        html = html_get(url, cache_key=f"spenden_{jahr}")
+        # Schritt 1: echte Inhalts-URL finden
+        url = _finde_spenden_url(jahr)
+        # Schritt 2: Inhaltsseite laden
+        html = html_get(url, cache_key=f"spenden_{jahr}", cache_h=24)
         if not html:
+            print(f"    ✗ Keine Daten für {jahr}")
             continue
-        rows = re.findall(r'<tr[^>]*>(.*?)</tr>', html, re.DOTALL)
-        neu = 0
-        for row in rows:
-            cells = re.findall(r'<td[^>]*>(.*?)</td>', row, re.DOTALL)
-            cells = [re.sub(r'<[^>]+>', '', cell).strip() for cell in cells]
-            if len(cells) < 4:
-                continue
-            try:
-                t = cells[0].split('.')
-                if len(t) != 3:
-                    continue
-                datum = f"{t[2].strip()}-{t[1].zfill(2)}-{t[0].zfill(2)}"
-                spender, partei = cells[1].strip(), cells[2].strip()
-                bs = cells[3].replace('.','').replace(',','.').replace('€','').replace('\xa0','').strip()
-                betrag = float(''.join(ch for ch in bs if ch.isdigit() or ch == '.'))
-                if not spender or not partei or betrag <= 0:
-                    continue
-                if not c.execute("SELECT id FROM parteispenden WHERE spender=? AND datum=? AND betrag_eur=?", (spender,datum,betrag)).fetchone():
-                    c.execute("INSERT INTO parteispenden (spender,empfaenger,betrag_eur,datum,branche,quelle_url,quelle) VALUES (?,?,?,?,?,?,?)",
-                              (spender, partei, betrag, datum, erkenne_branche(spender), url, "bundestag"))
-                    neu += 1
-            except (ValueError, IndexError):
-                continue
+        neu = _parse_spenden_html(html, url, cur, jahr)
+        # Falls 0 Treffer: vielleicht mehrere Unterseiten (z.B. monatlich)
+        if neu == 0:
+            sub_links = re.findall(
+                r'href="(/parlament/praesidium/parteienfinanzierung/fundstellen50000/' + str(jahr) + r'/[^"]+)"',
+                html)
+            for sl in set(sub_links):
+                sub_url = "https://www.bundestag.de" + sl
+                sub_html = html_get(sub_url, cache_key=f"spenden_{jahr}_{abs(hash(sl))}", cache_h=24)
+                if sub_html:
+                    neu += _parse_spenden_html(sub_html, sub_url, cur, jahr)
         gesamt += neu
         print(f"    ✓ {neu} neue Einträge")
     conn.commit()
@@ -973,6 +1007,17 @@ if __name__ == "__main__":
     print("\n🔍 KORRUPTIONS-RADAR v2\n" + "="*45)
     init_db()
 
+    if modus == "--reset":
+        print("  -> Loesche alte Daten...")
+        conn = sqlite3.connect(DB_PATH)
+        for t in ["super_korrelationen","drehtuer","korrelationen","abstimmungs_ergebnis",
+                  "abstimmungen","nebeneinkuenfte","ausschuesse","parteispenden","abgeordnete"]:
+            conn.execute(f"DELETE FROM {t}")
+        conn.commit()
+        conn.close()
+        print("  Alte Daten geloescht")
+        modus = "--echt"
+
     if modus == "--test":
         teste_apis()
 
@@ -981,10 +1026,10 @@ if __name__ == "__main__":
         analysiere_korrelationen()
         berechne_drehtuer()
         berechne_super_scores()
-        print("\n✅ Demo abgeschlossen.")
+        print("\n Demo abgeschlossen.")
 
     else:
-        print("\n📡 Lade echte Daten...\n")
+        print("\n Lade echte Daten...\n")
         print("[1/7] Abgeordnete...")
         lade_abgeordnete()
         print("\n[2/7] Parteispenden...")
@@ -999,12 +1044,7 @@ if __name__ == "__main__":
         lade_ausschuesse()
 
         conn = sqlite3.connect(DB_PATH)
-        if conn.execute("SELECT COUNT(*) FROM parteispenden").fetchone()[0] < 3:
-            conn.close()
-            print("\n⚠ Wenig echte Daten → ergänze Demo-Daten")
-            lade_demo_daten()
-        else:
-            conn.close()
+        conn.close()
 
         print("\n[7/7] Analyse...")
         analysiere_korrelationen()
