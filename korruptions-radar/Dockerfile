@@ -1,16 +1,9 @@
-ARG BUILD_FROM
-FROM $BUILD_FROM
+FROM ghcr.io/home-assistant/aarch64-base-python:3.11-alpine3.17
 
-# Install dependencies
-RUN apk add --no-cache python3 py3-pip nginx
+RUN apk add --no-cache py3-flask py3-werkzeug py3-jinja2 py3-click py3-itsdangerous py3-markupsafe
 
-# Install Python packages
-RUN pip3 install flask --break-system-packages
-
-# Copy application files
 COPY rootfs /
 
-# Make scripts executable
 RUN chmod +x /usr/bin/run.sh
 
 CMD ["/usr/bin/run.sh"]

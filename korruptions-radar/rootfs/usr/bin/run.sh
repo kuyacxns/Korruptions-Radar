@@ -1,14 +1,15 @@
 #!/usr/bin/with-contenv bashio
 
-bashio::log.info "Starte Korruptions-Radar v2..."
+bashio::log.info "Starte Korruptions-Radar..."
 
-# Verzeichnisse anlegen
 mkdir -p /data/korruptions_radar/reports
 mkdir -p /data/korruptions_radar/cache
 
-# Datenbank initialisieren + Demo-Daten laden
 bashio::log.info "Initialisiere Datenbank..."
-python3 /usr/bin/daten_sammler.py
+python3 /usr/bin/daten_sammler.py --reset
+
+bashio::log.info "Starte API Server auf Port 7755..."
+python3 /usr/bin/api_server.py
 
 # Wöchentlichen Bericht generieren (jeden Montag 07:00)
 (while true; do
