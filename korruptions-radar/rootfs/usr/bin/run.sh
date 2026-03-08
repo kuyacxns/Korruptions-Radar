@@ -6,7 +6,7 @@ mkdir -p /data/korruptions_radar/reports
 mkdir -p /data/korruptions_radar/cache
 
 bashio::log.info "Initialisiere Datenbank..."
-python3 /usr/bin/daten_sammler.py --demo
+python3 /usr/bin/daten_sammler.py
 
 bashio::log.info "Starte API Server auf Port 7755..."
 python3 /usr/bin/api_server.py
