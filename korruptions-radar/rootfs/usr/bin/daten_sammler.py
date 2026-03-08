@@ -26,7 +26,7 @@ DB_PATH   = Path("/data/korruptions_radar/korruptions_radar.db")
 CACHE_DIR = Path("/data/korruptions_radar/cache")
 
 DIP_API_KEY    = "OSOegLs.PR2lwJ1dwCeje9vTj7FPOt3hvpYKtwKkhw"
-WAHLPERIODE_ID = 161   # 21. Bundestag 2025-2029
+WAHLPERIODE_ID = 132   # 21. Bundestag 2025-2029
 RATE_LIMIT     = 0.5   # Sekunden zwischen Anfragen
 
 
