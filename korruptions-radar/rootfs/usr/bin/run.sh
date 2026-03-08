@@ -1,12 +1,15 @@
 #!/usr/bin/with-contenv bashio
 
 bashio::log.info "Starte Korruptions-Radar..."
+
 mkdir -p /data/korruptions_radar/reports
 mkdir -p /data/korruptions_radar/cache
 
-# Flask ist nicht installiert - verwende eingebautes Python http.server
-cd /usr/share/korruptions_radar
-python3 -m http.server 7755
+bashio::log.info "Initialisiere Datenbank..."
+python3 /usr/bin/daten_sammler.py --demo
+
+bashio::log.info "Starte API Server auf Port 7755..."
+python3 /usr/bin/api_server.py
 
 # Wöchentlichen Bericht generieren (jeden Montag 07:00)
 (while true; do
