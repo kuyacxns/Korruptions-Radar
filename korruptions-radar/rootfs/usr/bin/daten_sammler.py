@@ -227,50 +227,145 @@ def erkenne_branche(text):
 # QUELLE 1: PARTEISPENDEN
 # ═══════════════════════════════════════════════════════════
 
-SPENDEN_URLS = {
-    2021: "https://www.bundestag.de/parlament/praesidium/parteienfinanzierung/fundstellen50000/2021",
-    2022: "https://www.bundestag.de/parlament/praesidium/parteienfinanzierung/fundstellen50000/2022/2022-inhalt-879480",
-    2023: "https://www.bundestag.de/parlament/praesidium/parteienfinanzierung/fundstellen50000/2023",
-    2024: "https://www.bundestag.de/parlament/praesidium/parteienfinanzierung/fundstellen50000/2024/2024-inhalt-984862",
-    2025: "https://www.bundestag.de/parlament/praesidium/parteienfinanzierung/fundstellen50000/2025/2025-inhalt-1032412",
-    2026: "https://www.bundestag.de/parlament/praesidium/parteienfinanzierung/fundstellen50000/2026/2026-inhalt-1134912",
-}
+# ═══════════════════════════════════════════════════════════
+# QUELLE 1: PARTEISPENDEN via DIP API (Drucksachen)
+# ═══════════════════════════════════════════════════════════
 
-def _finde_spenden_url(jahr):
-    """Gibt die bekannte Inhalts-URL zurück, oder sucht sie dynamisch."""
-    if jahr in SPENDEN_URLS:
-        return SPENDEN_URLS[jahr]
-    # Fallback: Index-Seite laden und Link suchen
-    basis = f"https://www.bundestag.de/parlament/praesidium/parteienfinanzierung/fundstellen50000/{jahr}"
-    html = html_get(basis, cache_key=f"spenden_index_{jahr}", cache_h=48)
-    if not html:
-        return basis
-    match = re.search(r'href="(/parlament/praesidium/parteienfinanzierung/fundstellen50000/' + str(jahr) + r'/[^"]+)"', html)
-    if match:
-        return "https://www.bundestag.de" + match.group(1)
-    return basis
-
-def _parse_spenden_html(html, url, c, jahr):
-    """Parst HTML-Tabelle der Bundestag-Spendenseite, gibt Anzahl neuer Einträge zurück."""
+def _parse_spenden_drucksache(text, drucksache_url, c):
+    """Parst Text einer Parteispenden-Drucksache und speichert Einträge."""
     neu = 0
-    rows = re.findall(r'<tr[^>]*>(.*?)</tr>', html, re.DOTALL)
+    # Suche nach Zeilen mit Betrag, Spender, Partei
+    # Format: Datum | Spender | Partei | Betrag
+    zeilen = text.split('\n')
+    for zeile in zeilen:
+        zeile = zeile.strip()
+        # Suche nach Datumsmustern DD.MM.YYYY
+        datum_match = re.search(r'(\d{2}\.\d{2}\.\d{4})', zeile)
+        betrag_match = re.search(r'([\d\.]+(?:,\d+)?)\s*(?:Euro|EUR|€)', zeile, re.IGNORECASE)
+        if not datum_match or not betrag_match:
+            continue
+        try:
+            t = datum_match.group(1).split('.')
+            datum = f"{t[2]}-{t[1].zfill(2)}-{t[0].zfill(2)}"
+            bs = betrag_match.group(1).replace('.','').replace(',','.')
+            betrag = float(bs)
+            if betrag < 35000:
+                continue
+            # Parteinamen suchen
+            partei = "Unbekannt"
+            for p in ["CDU","CSU","SPD","Grüne","FDP","AfD","Linke","BSW","SSW","Volt","Freie Wähler"]:
+                if p.lower() in zeile.lower():
+                    partei = p
+                    break
+            # Spender: Rest der Zeile nach Datum
+            spender_part = zeile[datum_match.end():betrag_match.start()].strip(' -|,')
+            spender = spender_part[:100] if spender_part else "Unbekannt"
+            if spender == "Unbekannt" or betrag <= 0:
+                continue
+            if not c.execute("SELECT id FROM parteispenden WHERE spender=? AND datum=? AND betrag_eur=?",
+                             (spender, datum, betrag)).fetchone():
+                c.execute("INSERT INTO parteispenden (spender,empfaenger,betrag_eur,datum,branche,quelle_url,quelle) VALUES (?,?,?,?,?,?,?)",
+                          (spender, partei, betrag, datum, erkenne_branche(spender), drucksache_url, "dip"))
+                neu += 1
+        except (ValueError, IndexError):
+            continue
+    return neu
+
+def lade_parteispenden(jahre=None):
+    """Lädt Parteispenden über die DIP-API (Bundestagsdrucksachen)."""
+    if jahre is None:
+        jahre = list(range(2021, datetime.date.today().year + 1))
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    gesamt = 0
+
+    for jahr in jahre:
+        print(f"  → Spenden {jahr}...")
+        neu = 0
+        # DIP API: Suche nach Drucksachen zum Thema Parteispenden
+        url = (f"https://search.dip.bundestag.de/api/v1/drucksache"
+               f"?apikey={DIP_API_KEY}"
+               f"&f.datum.start={jahr}-01-01"
+               f"&f.datum.end={jahr}-12-31"
+               f"&f.drucksachetyp=Bekanntmachung"
+               f"&f.wahlperiode=20"
+               f"&rows=100"
+               f"&q=Parteispende")
+        data = api_get(url, cache_key=f"dip_spenden_{jahr}", cache_h=24)
+        if data and "documents" in data:
+            for doc in data.get("documents", []):
+                doc_url = doc.get("fundstelle", {}).get("pdf_url", "")
+                titel = doc.get("titel", "")
+                datum_str = doc.get("datum", "")
+                # Spender und Partei aus Titel extrahieren
+                # Titel z.B.: "Bekanntmachung über eine Spende an die CDU"
+                partei = "Unbekannt"
+                for p in ["CDU","CSU","SPD","GRÜNE","FDP","AFD","LINKE","BSW","SSW","VOLT"]:
+                    if p in titel.upper():
+                        partei = p.title()
+                        break
+                betrag_match = re.search(r'([\d\.]+(?:,\d+)?)\s*(?:Euro|EUR|€)', titel, re.IGNORECASE)
+                spender_match = re.search(r'von\s+(.+?)(?:\s+an\s+|\s+für\s+|$)', titel, re.IGNORECASE)
+                if betrag_match and datum_str:
+                    try:
+                        betrag = float(betrag_match.group(1).replace('.','').replace(',','.'))
+                        spender = spender_match.group(1).strip()[:100] if spender_match else "Unbekannt"
+                        datum = datum_str[:10]
+                        if betrag >= 35000 and not cur.execute(
+                            "SELECT id FROM parteispenden WHERE spender=? AND datum=? AND betrag_eur=?",
+                            (spender, datum, betrag)).fetchone():
+                            cur.execute("INSERT INTO parteispenden (spender,empfaenger,betrag_eur,datum,branche,quelle_url,quelle) VALUES (?,?,?,?,?,?,?)",
+                                       (spender, partei, betrag, datum, erkenne_branche(spender), doc_url, "dip"))
+                            neu += 1
+                    except (ValueError, IndexError):
+                        continue
+
+        # Fallback: direkte Bundestag-Seite als Text laden
+        if neu == 0:
+            DIREKT_URLS = {
+                2022: "https://www.bundestag.de/parlament/praesidium/parteienfinanzierung/fundstellen50000/2022/2022-inhalt-879480",
+                2024: "https://www.bundestag.de/parlament/praesidium/parteienfinanzierung/fundstellen50000/2024/2024-inhalt-984862",
+                2025: "https://www.bundestag.de/parlament/praesidium/parteienfinanzierung/fundstellen50000/2025/2025-inhalt-1032412",
+                2026: "https://www.bundestag.de/parlament/praesidium/parteienfinanzierung/fundstellen50000/2026/2026-inhalt-1134912",
+            }
+            url2 = DIREKT_URLS.get(jahr,
+                f"https://www.bundestag.de/parlament/praesidium/parteienfinanzierung/fundstellen50000/{jahr}")
+            html = html_get(url2, cache_key=f"spenden_html_{jahr}", cache_h=24)
+            if html:
+                neu += _parse_spenden_html_v2(html, url2, cur)
+
+        gesamt += neu
+        print(f"    ✓ {neu} neue Einträge")
+
+    conn.commit()
+    conn.close()
+    print(f"  ✓ Spenden gesamt neu: {gesamt}")
+    return gesamt
+
+def _parse_spenden_html_v2(html, url, c):
+    """Parst HTML mit verschiedenen Tabellenformaten."""
+    neu = 0
+    # Versuche alle Tabellenvarianten
+    rows = re.findall(r'<tr[^>]*>(.*?)</tr>', html, re.DOTALL | re.IGNORECASE)
     for row in rows:
-        cells = re.findall(r'<td[^>]*>(.*?)</td>', row, re.DOTALL)
-        cells = [re.sub(r'<[^>]+>', '', cell).strip() for cell in cells]
-        cells = [c2.replace('\n',' ').replace('\r','').strip() for c2 in cells]
+        cells = re.findall(r'<t[dh][^>]*>(.*?)</t[dh]>', row, re.DOTALL | re.IGNORECASE)
+        cells = [re.sub(r'<[^>]+>', ' ', cell).strip() for cell in cells]
+        cells = [' '.join(cell.split()) for cell in cells]
         if len(cells) < 4:
             continue
         try:
-            # Datum: DD.MM.YYYY
             t = cells[0].split('.')
-            if len(t) != 3 or not t[2].strip().isdigit():
+            if len(t) != 3 or not t[2].strip()[:4].isdigit():
                 continue
-            datum = f"{t[2].strip()}-{t[1].zfill(2)}-{t[0].zfill(2)}"
-            spender = cells[1].strip()
-            partei  = cells[2].strip()
-            bs = cells[3].replace('.','').replace(',','.').replace('€','').replace('\xa0','').replace(' ','').strip()
-            betrag = float(''.join(ch for ch in bs if ch.isdigit() or ch == '.'))
-            if not spender or not partei or betrag <= 0:
+            datum = f"{t[2].strip()[:4]}-{t[1].zfill(2)}-{t[0].zfill(2)}"
+            spender = cells[1].strip()[:200]
+            partei  = cells[2].strip()[:100]
+            bs = re.sub(r'[^\d,.]', '', cells[3])
+            bs = bs.replace('.','').replace(',','.')
+            if not bs:
+                continue
+            betrag = float(bs)
+            if not spender or not partei or betrag < 35000:
                 continue
             if not c.execute("SELECT id FROM parteispenden WHERE spender=? AND datum=? AND betrag_eur=?",
                              (spender, datum, betrag)).fetchone():
@@ -280,39 +375,6 @@ def _parse_spenden_html(html, url, c, jahr):
         except (ValueError, IndexError):
             continue
     return neu
-
-def lade_parteispenden(jahre=None):
-    if jahre is None:
-        jahre = list(range(2021, datetime.date.today().year + 1))
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    gesamt = 0
-    for jahr in jahre:
-        print(f"  → Spenden {jahr}...")
-        # Schritt 1: echte Inhalts-URL finden
-        url = _finde_spenden_url(jahr)
-        # Schritt 2: Inhaltsseite laden
-        html = html_get(url, cache_key=f"spenden_{jahr}", cache_h=24)
-        if not html:
-            print(f"    ✗ Keine Daten für {jahr}")
-            continue
-        neu = _parse_spenden_html(html, url, cur, jahr)
-        # Falls 0 Treffer: vielleicht mehrere Unterseiten (z.B. monatlich)
-        if neu == 0:
-            sub_links = re.findall(
-                r'href="(/parlament/praesidium/parteienfinanzierung/fundstellen50000/' + str(jahr) + r'/[^"]+)"',
-                html)
-            for sl in set(sub_links):
-                sub_url = "https://www.bundestag.de" + sl
-                sub_html = html_get(sub_url, cache_key=f"spenden_{jahr}_{abs(hash(sl))}", cache_h=24)
-                if sub_html:
-                    neu += _parse_spenden_html(sub_html, sub_url, cur, jahr)
-        gesamt += neu
-        print(f"    ✓ {neu} neue Einträge")
-    conn.commit()
-    conn.close()
-    print(f"  ✓ Spenden gesamt neu: {gesamt}")
-    return gesamt
 
 
 # ═══════════════════════════════════════════════════════════
