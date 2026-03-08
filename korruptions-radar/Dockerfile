@@ -1,6 +1,6 @@
 FROM ghcr.io/home-assistant/aarch64-base-python:3.11-alpine3.17
 
-RUN apk add --no-cache py3-flask
+RUN apk add --no-cache py3-pip && pip3 install flask --break-system-packages
 
 COPY rootfs /
 
