@@ -1,6 +1,6 @@
 name: "Korruptions-Radar"
 description: "Analysiert Parteispenden und Abstimmungsverhalten auf verdächtige Muster"
-version: "1.0.5"
+version: "1.0.6"
 slug: "korruptions_radar"
 init: false
 arch:
