@@ -26,7 +26,7 @@ DB_PATH   = Path("/data/korruptions_radar/korruptions_radar.db")
 CACHE_DIR = Path("/data/korruptions_radar/cache")
 
 DIP_API_KEY    = "OSOegLs.PR2lwJ1dwCeje9vTj7FPOt3hvpYKtwKkhw"
-WAHLPERIODE_ID = 132   # 20. Bundestag 2021-2025
+WAHLPERIODE_ID = 161   # 21. Bundestag 2025-2029
 RATE_LIMIT     = 0.5   # Sekunden zwischen Anfragen
 
 
@@ -484,7 +484,7 @@ def lade_abstimmungen(max_seiten=10):
     n = 0
     for seite in range(max_seiten):
         data = api_get(
-            f"https://www.abgeordnetenwatch.de/api/v2/polls?parliament_period={WAHLPERIODE_ID}&pager_limit=25&page={seite}",
+            f"https://www.abgeordnetenwatch.de/api/v2/polls?parliament_period_id={WAHLPERIODE_ID}&pager_limit=25&page={seite}",
             cache_key=f"polls_{WAHLPERIODE_ID}_p{seite}"
         )
         if not data or not data.get("data"):
